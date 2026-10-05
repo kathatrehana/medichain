@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MediChain – Drug Traceability Prototype</title>
+<style>
+:root{--ink:#14201f;--bg:#f4f7f6;--card:#fff;--line:#d5dfdc;--teal:#0b6b5e;--ok:#15803d;--warn:#b45309;--bad:#b42318;--mut:#5b6b68}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+h1,h2,h3{font-family:Georgia,"Times New Roman",serif;margin:.2em 0}
+header{background:var(--ink);color:#fff;padding:18px 20px 0}
+header p{margin:0 0 12px;color:#a9c4be;font-size:14px}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav button{background:none;border:0;color:#a9c4be;padding:10px 16px;font:inherit;cursor:pointer;border-bottom:3px solid transparent}
+nav button.on{color:#fff;border-color:#4fd1b8}
+main{max-width:860px;margin:0 auto;padding:20px 16px 60px}
+section{display:none}section.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin:14px 0}
+input,select,button.b{font:inherit;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#fff}
+input{min-width:0}
+button.b{background:var(--teal);color:#fff;border-color:var(--teal);cursor:pointer}
+button.b.alt{background:#fff;color:var(--teal)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #4fd1b8;outline-offset:1px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.chip{font-size:13px;padding:4px 10px;border:1px dashed var(--teal);border-radius:99px;background:none;color:var(--teal);cursor:pointer}
+.res{border-left:8px solid;border-radius:8px;padding:14px 16px;background:#fff;margin:14px 0}
+.res h2{font-size:26px}.ok{border-color:var(--ok)}.ok h2{color:var(--ok)}
+.warn{border-color:var(--warn)}.warn h2{color:var(--warn)}.bad{border-color:var(--bad)}.bad h2{color:var(--bad)}
+.flag{border-left:5px solid;padding:7px 12px;margin:6px 0;background:#fff;border-radius:6px}
+.tl{border-left:2px solid var(--teal);margin:10px 0 0 8px;padding-left:16px}
+.tl div{margin-bottom:10px;position:relative}
+.tl div:before{content:"";position:absolute;left:-23px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--teal)}
+.mut{color:var(--mut);font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:15px}td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+.blk{font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace;word-break:break-all;border:1px solid var(--line);border-left:6px solid var(--ok);border-radius:6px;padding:8px 10px;margin:0 0 4px;background:#fff}
+.blk.x{border-left-color:var(--bad);background:#fff3f1}
+.arrow{text-align:center;color:var(--mut);line-height:1}
+label.c{display:inline-flex;gap:5px;margin:3px 10px 3px 0;font-size:15px}
+.disc{font-size:13px;color:var(--mut);margin-top:24px}
+</style>
+</head>
+<body>
+<header>
+  <h1>MediChain</h1>
+  <p>Scan a medicine. Check it is genuine. Know how to take it safely.</p>
+  <nav id="nav">
+    <button data-t="verify" class="on">Verify</button>
+    <button data-t="meds">Medicine guide</button>
+    <button data-t="mfr">Manufacturer</button>
+    <button data-t="chain">Blockchain</button>
+  </nav>
+</header>
+<main>
+
+<section id="verify" class="on">
+  <div class="card">
+    <h3>Verify a medicine</h3>
+    <p class="mut">Type the code printed under the QR (format B2026001-0001) or try a demo case.</p>
+    <div class="row"><input id="uid" placeholder="B2026001-0001" aria-label="Medicine UID" size="22"><button class="b" id="vbtn">Verify</button></div>
+    <div class="row">
+      <button class="chip" data-u="B2026001-0001">Genuine</button>
+      <button class="chip" data-u="B2026001-9999">Invalid serial</button>
+      <button class="chip" data-u="B2026002-0010">Expired</button>
+      <button class="chip" data-u="B2026003-0005">Recalled</button>
+      <button class="chip" data-u="B2026999-0001">Counterfeit</button>
+    </div>
+  </div>
+  <div id="vout"></div>
+</section>
+
+<section id="meds">
+  <div class="card">
+    <h3>Medicine guide and safety check</h3>
+    <div class="row"><select id="med" aria-label="Medicine"></select></div>
+    <div id="mcard"></div>
+  </div>
+  <div class="card">
+    <h3>Is it safe for me?</h3>
+    <div class="row"><input id="age" type="number" min="0" max="120" placeholder="Age" aria-label="Age" style="width:90px"><input id="alg" placeholder="Allergies (e.g. penicillin, aspirin)" aria-label="Allergies" size="30"></div>
+    <div>
+      <label class="c"><input type="checkbox" class="cond" value="preg">Pregnant / breastfeeding</label>
+      <label class="c"><input type="checkbox" class="cond" value="liver">Liver disease</label>
+      <label class="c"><input type="checkbox" class="cond" value="kidney">Kidney disease</label>
+      <label class="c"><input type="checkbox" class="cond" value="ulcer">Stomach ulcer / acidity</label>
+      <label class="c"><input type="checkbox" class="cond" value="asthma">Asthma</label>
+      <label class="c"><input type="checkbox" class="cond" value="heart">Heart disease / high BP</label>
+      <label class="c"><input type="checkbox" class="cond" value="alc">Regular alcohol</label>
+    </div>
+    <div class="row"><button class="b" id="chk">Check</button></div>
+    <div id="cout"></div>
+  </div>
+</section>
+
+<section id="mfr">
+  <div class="card">
+    <h3>Register a new batch</h3>
+    <div class="row"><select id="rmed" aria-label="Medicine"></select><input id="rmf" placeholder="Manufacturer" aria-label="Manufacturer"></div>
+    <div class="row"><input id="rexp" type="date" aria-label="Expiry date"><input id="runits" type="number" min="1" value="100" aria-label="Units" style="width:100px"><button class="b" id="rbtn">Register on chain</button></div>
+    <div id="rout"></div>
+  </div>
+  <div class="card">
+    <h3>Transfer or recall a batch</h3>
+    <div class="row"><select id="tb" aria-label="Batch"></select><input id="tto" placeholder="New owner (e.g. Sharma Medicos)" aria-label="New owner"><input id="tloc" placeholder="City" aria-label="City" style="width:110px"></div>
+    <div class="row"><button class="b" id="tbtn">Record transfer</button><button class="b alt" id="recall">Recall this batch</button></div>
+    <div id="tout"></div>
+  </div>
+</section>
+
+<section id="chain">
+  <div class="card">
+    <h3>The ledger</h3>
+    <p class="mut">Each block stores its index, timestamp, data, the hash of the previous block, and its own SHA-256 hash. Change anything and every block after it breaks.</p>
+    <div class="row"><button class="b" id="val">Validate chain</button><button class="b alt" id="tamper">Tamper with block 1</button><button class="b alt" id="reset">Reset demo data</button></div>
+    <div id="vstat"></div>
+  </div>
+  <div id="blocks"></div>
+</section>
+
+<p class="disc">Educational prototype. The blockchain is simulated in the browser (localStorage) on a single node. Hyperledger Fabric with proof of authority is the proposed production design. Prices are sample values. Medicine information is general and does not replace a doctor or pharmacist.</p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const COL={ok:'var(--ok)',warn:'var(--warn)',bad:'var(--bad)'};
+
+/* ---------- Medicine knowledge base (sample data) ---------- */
+const MEDS={
+para:{name:'Paracetamol',brand:'Dolo 650',rx:false,use:'Fever and mild to moderate pain.',
+ dose:'Adults: 500–650 mg every 4–6 hours. Maximum 4,000 mg in 24 hours (keep under 3,000 mg if you drink alcohol or have liver problems).',
+ alts:[['Paracetamol 650 (generic, Jan Aushadhi)',18,'generic'],['Crocin 650',32,'brand'],['Dolo 650',32,'brand']],
+ allergy:['paracetamol','acetaminophen'],avoid:['People with liver disease','Regular heavy alcohol users','Anyone already taking another paracetamol-containing cold or flu product'],
+ doctor:['Fever lasting more than 3 days','Any use in children (dose depends on weight)','Pregnancy'],
+ risk:{liver:['bad','Liver disease: overdose risk is higher. Ask a doctor first.'],alc:['warn','Regular alcohol raises liver risk. Stay well below the maximum dose.'],preg:['warn','Pregnancy: ask your doctor before use.']}},
+ibu:{name:'Ibuprofen',brand:'Brufen 400',rx:false,use:'Pain, inflammation, fever (NSAID).',
+ dose:'Adults: 200–400 mg every 6–8 hours, always after food. Without a doctor, keep under 1,200 mg per day and use for no more than a few days.',
+ alts:[['Ibuprofen 400 (generic)',14,'generic'],['Brufen 400',24,'brand'],['Combiflam (with paracetamol)',28,'brand']],
+ allergy:['ibuprofen','aspirin','nsaid','diclofenac'],avoid:['Stomach ulcer or gastric bleeding history','Kidney or heart disease','Asthma triggered by painkillers','Pregnancy (especially the last 3 months)'],
+ doctor:['Needed for more than 3–5 days','If you take blood thinners or BP medicines','Children under 12'],
+ risk:{ulcer:['bad','Can cause stomach bleeding. Avoid unless a doctor says so.'],kidney:['bad','Can worsen kidney function. Avoid.'],asthma:['bad','Can trigger asthma attacks in some people. Ask a doctor.'],heart:['warn','Raises BP and heart risk. Ask a doctor.'],preg:['bad','Avoid in pregnancy unless your doctor advises.'],alc:['warn','Alcohol increases stomach irritation.']}},
+cet:{name:'Cetirizine',brand:'Okacet',rx:false,use:'Allergic rhinitis, hives, itching.',
+ dose:'Adults: 10 mg once a day, preferably at night (can cause drowsiness).',
+ alts:[['Cetirizine 10 (generic)',6,'generic'],['Okacet',22,'brand'],['Cetzine',24,'brand']],
+ allergy:['cetirizine','hydroxyzine','levocetirizine'],avoid:['People allergic to hydroxyzine','Drivers or machine operators right after a dose'],
+ doctor:['Kidney disease (dose is reduced)','Pregnancy or breastfeeding','Children (weight-based dose)'],
+ risk:{kidney:['warn','Needs a reduced dose. Ask a doctor.'],alc:['warn','Alcohol adds to drowsiness.'],preg:['warn','Ask your doctor before use.']}},
+pan:{name:'Pantoprazole',brand:'Pan 40',rx:true,use:'Acidity, GERD, protecting the stomach.',
+ dose:'Adults: usually 40 mg once a day, 30–60 minutes before breakfast. Doctor decides duration; use beyond 2 weeks needs medical advice.',
+ alts:[['Pantoprazole 40 (generic)',22,'generic'],['Pan 40',48,'brand'],['Pantocid 40',52,'brand']],
+ allergy:['pantoprazole','omeprazole','esomeprazole','ppi'],avoid:['People allergic to other proton pump inhibitors'],
+ doctor:['Long-term use','Black stools, vomiting blood, or trouble swallowing','Liver disease','Pregnancy'],
+ risk:{liver:['warn','Dose may need adjusting. Ask a doctor.'],preg:['warn','Ask your doctor before use.']}},
+amox:{name:'Amoxicillin',brand:'Mox 500',rx:true,use:'Bacterial infections (antibiotic).',
+ dose:'Prescription only. Dose and duration are set by your doctor. Finish the full course even if you feel better.',
+ alts:[['Amoxicillin 500 (generic)',45,'generic'],['Mox 500',72,'brand'],['Novamox 500',70,'brand']],
+ allergy:['penicillin','amoxicillin','ampicillin','cephalosporin'],avoid:['Anyone allergic to penicillin','People with past severe rash after antibiotics'],
+ doctor:['Always: never self-medicate with antibiotics','Kidney disease','Pregnancy'],
+ risk:{kidney:['warn','Dose adjustment may be needed. Tell your doctor.'],preg:['warn','Only on a doctor’s advice.']}}
+};
+
+/* ---------- Blockchain (single-node, hash-linked chain) ---------- */
+let chain=[];
+const sha=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+const calc=b=>sha(b.index+'|'+b.timestamp+'|'+JSON.stringify(b.data)+'|'+b.prevHash);
+const save=()=>localStorage.setItem('medichain',JSON.stringify(chain));
+async function add(data,ts){
+  const p=chain[chain.length-1];
+  const b={index:chain.length,timestamp:ts||new Date().toISOString(),data,prevHash:p?p.hash:'0'.repeat(64)};
+  b.hash=await calc(b);chain.push(b);save();
+}
+async function check(){ // returns first bad block or -1
+  for(let i=0;i<chain.length;i++){
+    if(chain[i].hash!==await calc(chain[i]))return i;
+    if(i&&chain[i].prevHash!==chain[i-1].hash)return i;
+  }
+  return -1;
+}
+async function seed(){
+  chain=[];
+  await add({type:'GENESIS',note:'MediChain genesis block'},'2026-01-01T00:00:00.000Z');
+  const B=[['B2026001','para','Micro Labs','2026-01-10','2028-12-31',500],
+           ['B2026002','ibu','Abbott India','2025-02-05','2026-03-31',300],
+           ['B2026003','amox','Cipla','2026-03-01','2028-02-28',200],
+           ['B2026004','cet','Sun Pharma','2026-02-15','2028-08-31',400]];
+  const at=(d,n)=>new Date(Date.parse(d)+864e5*n).toISOString();
+  for(const [id,m,mf,d,x,u] of B){
+    await add({type:'REGISTER',batch:id,med:m,mfr:mf,mfd:d,exp:x,units:u},at(d,0));
+    await add({type:'TRANSFER',batch:id,from:mf,to:'C&F Agent',loc:'Jaipur'},at(d,5));
+    await add({type:'TRANSFER',batch:id,from:'C&F Agent',to:'Raj Distributors',loc:'Jaipur'},at(d,12));
+    await add({type:'TRANSFER',batch:id,from:'Raj Distributors',to:'City Pharmacy',loc:'Bagru'},at(d,20));
+  }
+  await add({type:'RECALL',batch:'B2026003',reason:'Failed dissolution test (demo recall)'},'2026-06-12T10:00:00.000Z');
+}
+function state(){
+  const m={};
+  for(const b of chain){const d=b.data;
+    if(d.type==='REGISTER')m[d.batch]={...d,ev:[b],owner:d.mfr,recalled:null};
+    else if(m[d.batch]){m[d.batch].ev.push(b);
+      if(d.type==='TRANSFER')m[d.batch].owner=d.to;
+      if(d.type==='RECALL')m[d.batch].recalled=d.reason;}
+  }
+  return m;
+}
+
+/* ---------- Verify ---------- */
+function evText(b){const d=b.data;
+  if(d.type==='REGISTER')return `Manufactured by <b>${esc(d.mfr)}</b> (${esc(d.units)} units)`;
+  if(d.type==='TRANSFER')return `${esc(d.from)} → <b>${esc(d.to)}</b>, ${esc(d.loc)}`;
+  if(d.type==='RECALL')return `<b>Recalled:</b> ${esc(d.reason)}`;return '';}
+async function verify(uid){
+  const bad=await check(),S=state(),m=/^(B\d{7})-(\d{4})$/i.exec(uid.trim());
+  let cls,t,msg,b;
+  if(bad>=0){cls='bad';t='Ledger tampered';msg=`Block #${bad} fails its hash check, so these results cannot be trusted.`;}
+  else if(!m){cls='bad';t='Invalid code';msg='The code should look like B2026001-0001.';}
+  else{b=S[m[1].toUpperCase()];const n=+m[2];
+    if(!b){cls='bad';t='Possible counterfeit';msg='This batch is not recorded on the blockchain. Do not use it.';}
+    else if(n<1||n>b.units){cls='bad';t='Counterfeit serial';msg=`Serial ${n} is outside the registered range 1–${b.units}.`;}
+    else if(b.recalled){cls='bad';t='Recalled batch: do not use';msg=b.recalled;}
+    else if(new Date(b.exp)<new Date()){cls='warn';t='Expired';msg=`This batch expired on ${b.exp}. Do not take it.`;}
+    else{cls='ok';t='Genuine';msg=`Verified on chain. Expires ${b.exp}.`;}}
+  let h=`<div class="res ${cls}"><h2>${t}</h2><div>${msg}</div></div>`;
+  if(b&&bad<0){const M=MEDS[b.med];
+    h+=`<div class="card"><h3>${esc(M.name)} <span class="mut">(${esc(M.brand)}), batch ${esc(b.batch)}</span></h3>
+    <div class="mut">Current holder: ${esc(b.owner)}</div><div class="tl">`+
+    b.ev.map(e=>`<div>${evText(e)}<div class="mut">${e.timestamp.slice(0,10)} · block #${e.index}</div></div>`).join('')+
+    `</div></div>`;}
+  $('#vout').innerHTML=h;
+}
+
+/* ---------- Medicine guide ---------- */
+function medCard(k){const M=MEDS[k];
+  const li=a=>'<ul>'+a.map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>';
+  const lo=Math.min(...M.alts.map(a=>a[1])),hi=Math.max(...M.alts.map(a=>a[1]));
+  return `<p><b>${esc(M.name)}</b>: ${esc(M.use)} ${M.rx?'<b style="color:var(--bad)">Prescription medicine.</b>':''}</p>
+  <p><b>Usual adult dose</b><br>${esc(M.dose)}</p>
+  <p><b>Who should not take it</b></p>${li(M.avoid)}
+  <p><b>Allergy warning</b><br>Do not use if allergic to: ${esc(M.allergy.join(', '))}.</p>
+  <p><b>See a doctor before using, or if</b></p>${li(M.doctor)}
+  <p><b>Same medicine, other brands</b> <span class="mut">(sample prices, per strip)</span></p>
+  <table>${M.alts.map(a=>`<tr><td>${esc(a[0])}</td><td>₹${a[1]}</td><td>${a[2]==='generic'?`<b style="color:var(--ok)">Save ${Math.round((1-lo/hi)*100)}%</b>`:''}</td></tr>`).join('')}</table>`;
+}
+function safety(){
+  const k=$('#med').value,M=MEDS[k],a=+$('#age').value,al=$('#alg').value.toLowerCase(),out=[];
+  if(M.rx)out.push(['bad','Prescription medicine: take only as prescribed by a doctor.']);
+  if($('#age').value!==''&&a<12)out.push(['bad','Children need weight-based dosing. Ask a doctor or pharmacist; do not use adult doses.']);
+  if(a>=65)out.push(['warn','Age 65 or above: side effects are more likely. Check with a doctor first.']);
+  $$('.cond:checked').forEach(c=>{const r=M.risk[c.value];if(r)out.push(r);});
+  if(al&&M.allergy.some(w=>al.includes(w)))out.push(['bad','Your listed allergy matches this medicine. Do not take it.']);
+  if(!out.length)out.push(['ok','No flags from our rules. Still follow the label and ask a pharmacist if unsure.']);
+  $('#cout').innerHTML=out.map(o=>`<div class="flag" style="border-color:${COL[o[0]]}">${esc(o[1])}</div>`).join('');
+}
+
+/* ---------- Manufacturer ---------- */
+function fillSelects(){
+  const opts=Object.entries(MEDS).map(([k,v])=>`<option value="${k}">${v.name} (${v.brand})</option>`).join('');
+  $('#med').innerHTML=opts;$('#rmed').innerHTML=opts;
+  $('#tb').innerHTML=Object.keys(state()).map(b=>`<option>${b}</option>`).join('');
+}
+function qr(box,text){box.innerHTML='';if(typeof QRCode!=='undefined')new QRCode(box,{text,width:120,height:120});}
+async function register(){
+  const mf=$('#rmf').value.trim(),exp=$('#rexp').value,u=+$('#runits').value;
+  if(!mf||!exp||u<1){$('#rout').innerHTML='<div class="flag" style="border-color:var(--bad)">Enter manufacturer, expiry date and units.</div>';return;}
+  const id='B'+(2026000+Object.keys(state()).length+1);
+  await add({type:'REGISTER',batch:id,med:$('#rmed').value,mfr:mf,mfd:new Date().toISOString().slice(0,10),exp,units:u});
+  fillSelects();
+  $('#rout').innerHTML=`<div class="flag" style="border-color:var(--ok)">Registered <b>${id}</b>. Sample label code: <b>${id}-0001</b><div id="qrbox" style="margin-top:8px"></div></div>`;
+  qr($('#qrbox'),id+'-0001');
+}
+async function transfer(){
+  const b=$('#tb').value,S=state()[b],to=$('#tto').value.trim();
+  if(!S||!to){$('#tout').innerHTML='<div class="flag" style="border-color:var(--bad)">Choose a batch and enter the new owner.</div>';return;}
+  await add({type:'TRANSFER',batch:b,from:S.owner,to,loc:$('#tloc').value.trim()||'—'});
+  $('#tout').innerHTML=`<div class="flag" style="border-color:var(--ok)">Transfer recorded for ${b}.</div>`;
+}
+async function recall(){
+  const b=$('#tb').value;if(!b)return;
+  await add({type:'RECALL',batch:b,reason:'Recalled by manufacturer'});
+  $('#tout').innerHTML=`<div class="flag" style="border-color:var(--warn)">${b} recalled. Verifying any unit from it now shows a warning.</div>`;
+}
+
+/* ---------- Blockchain view ---------- */
+async function renderChain(){
+  const bad=await check();let h='';
+  for(const b of chain){
+    const x=bad>=0&&b.index>=bad;
+    h+=`<div class="blk ${x?'x':''}"><b>Block #${b.index}</b> · ${esc(b.timestamp)}<br>data: ${esc(JSON.stringify(b.data))}<br>prev: ${b.prevHash.slice(0,20)}…<br>hash: ${b.hash.slice(0,20)}…</div><div class="arrow">↓</div>`;
+  }
+  $('#blocks').innerHTML=h;
+  $('#vstat').innerHTML=bad<0?`<div class="flag" style="border-color:var(--ok)">Chain is valid: ${chain.length} blocks, every hash matches.</div>`
+    :`<div class="flag" style="border-color:var(--bad)">Chain is broken at block #${bad}. Blocks from there onward are untrusted.</div>`;
+}
+
+/* ---------- Wiring ---------- */
+$$('#nav button').forEach(b=>b.onclick=()=>{
+  $$('#nav button').forEach(x=>x.classList.toggle('on',x===b));
+  $$('section').forEach(s=>s.classList.toggle('on',s.id===b.dataset.t));
+  if(b.dataset.t==='chain')renderChain();
+});
+$('#vbtn').onclick=()=>verify($('#uid').value);
+$('#uid').onkeydown=e=>{if(e.key==='Enter')verify($('#uid').value)};
+$$('.chip').forEach(c=>c.onclick=()=>{$('#uid').value=c.dataset.u;verify(c.dataset.u)});
+$('#med').onchange=()=>{$('#mcard').innerHTML=medCard($('#med').value);$('#cout').innerHTML=''};
+$('#chk').onclick=safety;
+$('#rbtn').onclick=register;$('#tbtn').onclick=transfer;$('#recall').onclick=recall;
+$('#val').onclick=renderChain;
+$('#tamper').onclick=async()=>{if(chain.length>1){chain[1].data={...chain[1].data,units:999999};save();await renderChain();}};
+$('#reset').onclick=async()=>{await seed();fillSelects();$('#vout').innerHTML='';await renderChain();};
+
+(async()=>{
+  try{chain=JSON.parse(localStorage.getItem('medichain')||'[]');}catch(e){chain=[];}
+  if(!chain.length)await seed();
+  fillSelects();$('#mcard').innerHTML=medCard('para');
+})();
+</script>
+</body>
+</html>
